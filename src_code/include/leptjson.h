@@ -4,43 +4,55 @@
 #include <cstdlib> // malloc(), realloc(), free(), size_t
 #include <cstring> // memset(), memcpy(), memmove(), memcmp()
 
-#ifndef LEPTJSON_NAMESPACE
-#define LEPTJSON_NAMESPACE leptjson
-#endif
-#ifndef LEPTJSON_NAMESPACE_BEGIN
-#define LEPTJSON_NAMESPACE_BEGIN \
-    namespace LEPTJSON_NAMESPACE \
-    {
-#endif
-#ifndef LEPTJSON_NAMESPACE_END
-#define LEPTJSON_NAMESPACE_END }
-#endif
-
 //为了字节对齐把x调整成8的倍数
 #ifndef LEPTJSON_ALIGN
 #define LEPTJSON_ALIGN(x) (((x) + static_cast<size_t>(7u)) & ~static_cast<size_t>(7u))
 #endif
 
-//assert
-#ifndef LEPTJSON_ASSERT
-#include <cassert>
-#define LEPTJSON_ASSERT(x) assert(x)
-#endif
-
-LEPTJSON_NAMESPACE_BEGIN
-
-typedef unsigned SizeType;
-using std::size_t;
-enum Type
+namespace feiyan
 {
-    NullType = 0,   // null
-    FalseType = 1,  // false
-    TrueType = 2,   // true
-    ObjectType = 3, // object
-    ArrayType = 4,  // array
-    StringType = 5, // string
-    NumberType = 6  // number
-};
-LEPTJSON_NAMESPACE_END
+    enum JsonType
+    {
+        NullType = 0,   // null
+        FalseType = 1,  // false
+        TrueType = 2,   // true
+        NumberType = 3, // number
+        StringType = 4, // string
+        ArrayType = 5,  // array
+        ObjectType = 6  // object
+    };
+    enum JsonStat
+    {
+        OK = 0,
+        ExpectValue = 1,//只含有空白
+        InvalidValue = 2,//不符合规范的值
+        RootNotSingular = 3//空白之后还含有其它字符
+    };
+
+    class JsonContext
+    {
+    public:
+        const char *data_;
+    };
+
+    class Json
+    {
+    public:
+        JsonStat parse(const char *);
+        JsonType getType() { return type_; }
+
+    private:
+        void parseWs();//空白可以有零个或多个，肯定成功，不需要返回状态
+        JsonStat expect(const char *);
+        JsonStat parseNull();
+        JsonStat parseValue();
+        JsonStat parseTrue();
+        JsonStat parseFalse();
+
+    private:
+        JsonType type_;
+        JsonContext context_;
+    };
+} // namespace feiyan
 
 #endif
