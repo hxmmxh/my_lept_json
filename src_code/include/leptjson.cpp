@@ -1,8 +1,35 @@
 #include "leptjson.h"
 #include <string.h>
+#include <cctype>
+#include <errno.h>
+#include <math.h>
 
 namespace feiyan
 {
+    JsonContext::JsonContext(size_t length)
+    {
+        stack_ = static_cast<char *>(malloc(length));
+        size_ = length;
+        top_ = 0;
+        data_ = nullptr;
+    }
+
+    void JsonContext::push(const char *string, size_t length)
+    {
+        //容量不足，扩大1.5倍
+        while (top_ + length >= size_)
+            size_ += size_ >> 1;
+        stack_ = static_cast<char *>(realloc(stack_, size_));
+        memcpy(stack_ + top_, string, length);
+        top_ += length;
+    }
+
+    void JsonContext::pop(char *den, size_t length)
+    {
+        assert(top_ >= length);
+        memcpy(den, stack_ + top_ - length, length);
+        top_ -= length;
+    }
 
     void Json::parseWs()
     {
@@ -21,21 +48,11 @@ namespace feiyan
         return OK;
     }
 
-    JsonStat Json::parseNull()
+    JsonStat Json::parseLiteral(const char *string, JsonType type)
     {
-        if (OK == expect("null"))
-            return OK;
-        else
+        if (OK == expect(string))
         {
-            return InvalidValue;
-        }
-    }
-
-    JsonStat Json::parseTrue()
-    {
-        if (OK == expect("true"))
-        {
-            type_ = TrueType;
+            type_ = type;
             return OK;
         }
         else
@@ -44,17 +61,51 @@ namespace feiyan
         }
     }
 
-    JsonStat Json::parseFalse()
+    //少了必要的元素会返回InvalidValue
+    //如果多了元素，会在parseValue时返回RootNotSingular，例如开头有多个0
+    JsonStat Json::parseNumber()
     {
-        if (OK == expect("false"))
-        {
-            type_ = FalseType;
-            return OK;
-        }
+        const char *p = context_.data_;
+        if (*p == '-')
+            ++p;
+        if (*p == '0')
+            ++p;
         else
         {
-            return InvalidValue;
+            if (!isdigit(*p))
+                return InvalidValue;
+            while (isdigit(*p))
+                ++p;
         }
+        if (*p == '.')
+        {
+            ++p;
+            if (!isdigit(*p))
+                return InvalidValue;
+            while (isdigit(*p))
+                ++p;
+        }
+        if (*p == 'e' || *p == 'E')
+        {
+            ++p;
+            if (*p == '+' || *p == '-')
+                ++p;
+            if (!isdigit(*p))
+                return InvalidValue;
+            while (isdigit(*p))
+                ++p;
+        }
+
+        //一些标准库函数通过写入正整数到 errno 指定错误。
+        //通常，会将 errno 的值设置为错误码之一。
+        //错误码作为以字母 E 后随大写字母或数字开始的宏常量，列于 <errno.h> 。
+        errno = 0;
+        n_ = strtod(context_.data_, nullptr);
+        if (errno == ERANGE && (n_ == HUGE_VAL || n_ == -HUGE_VAL))
+            return NumberTooBig;
+        type_ = NumberType;
+        context_.data_ = p;
+        return OK;
     }
 
     JsonStat Json::parseValue()
@@ -62,31 +113,50 @@ namespace feiyan
         switch (*context_.data_)
         {
         case 'n':
-            return parseNull();
+            return parseLiteral("null", NullType);
         case 't':
-            return parseTrue();
+            return parseLiteral("true", TrueType);
         case 'f':
-            return parseFalse();
+            return parseLiteral("false", FalseType);
+        case '"':
+            return parseString();
         case '\0':
             return ExpectValue;
+        //无论default位置在前在后，都是先判断各个case, 最后进default。
         default:
-            return InvalidValue;
+            return parseNumber();
         }
     }
 
     JsonStat Json::parse(const char *json)
     {
+        context_.reset();
         context_.data_ = json;
-        type_ = NullType;
         parseWs();
         JsonStat res = parseValue();
         if (res == OK)
         {
             parseWs();
             if (*context_.data_ != '\0')
+            {
+                type_ = NullType;
                 return RootNotSingular;
+            }
         }
         return res;
+    }
+
+    void Json::LeptFree()
+    {
+        if (type_ == StringType)
+            free(string_.s_);
+        type_ == NullType;
+    }
+
+    double Json::getNumber()
+    {
+        assert(type_ == NumberType);
+        return n_;
     }
 
 } // namespace feiyan
