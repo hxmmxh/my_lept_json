@@ -3,11 +3,42 @@
 
 using namespace std;
 
+
+
+class A
+{
+    public:
+    A()
+    {
+        cout << "init A" << endl;
+    }
+    A(const A&)
+    {
+        cout << "copy A" << endl;
+    }
+    ~A()
+    {
+        cout << "free A" << endl;
+    }
+};
+
+void f(A& a)
+{
+    cout << "f" << endl;
+    return;
+}
+
+void ff(A a)
+{
+    cout << "ff" << endl;
+    return;
+}
+
+
+
 int main()
 {
-    const char *p = "hi";
-    const char *q = "hiasdsad";
-    cout << memcmp(p, q, strlen(p));
-    q += strlen(p);
-    cout << *q;
+    A a;
+    f(a);
+    ff(a);
 }

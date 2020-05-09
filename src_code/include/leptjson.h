@@ -30,8 +30,8 @@ namespace feiyan
         RootNotSingular = 3,     //空白之后还含有其它字符
         NumberTooBig = 4,        //数值过大
         MissQuotationMark = 5,   //丢失引号
-        InvalidStringEscape = 6, //
-        InvalidStringChar = 7    //
+        InvalidStringEscape = 6, //转义字符错误
+        InvalidStringChar = 7    //普通字符错误
 
     };
 
@@ -46,7 +46,8 @@ namespace feiyan
         }
         void reset();
         void push(const char *, size_t);
-        void pop(char* ,size_t);
+        void pushChar(char);
+        void pop(size_t);
 
     public:
         static const size_t defaultInitSize = 256;
@@ -54,7 +55,6 @@ namespace feiyan
         char *stack_;
         size_t size_; //栈的容量
         size_t top_;  //栈顶位置
-        const char *data_;
     };
 
     class Json
@@ -83,13 +83,13 @@ namespace feiyan
         JsonStat expect(const char *);
         JsonStat parseLiteral(const char *, JsonType);
         JsonStat parseNumber();
-        JsonStat parseValue();
-        JsonStat parseString();
+        JsonStat parseValue(JsonContext &);
+        JsonStat parseString(JsonContext &);
         void LeptFree();
 
     private:
         JsonType type_;
-        JsonContext context_;
+        const char *stream_;
         //匿名union，在右花括号和分号之间没有任何声明
         //在匿名union定义所在的作用域内，该union的成员可以直接访问
         union {

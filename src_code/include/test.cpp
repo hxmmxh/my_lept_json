@@ -1,5 +1,6 @@
 #include "leptjson.h"
 #include <iostream>
+#include <string>
 
 using namespace feiyan;
 
@@ -29,6 +30,15 @@ static int test_pass = 0;
         CHECKEQUAL(expect, v.getNumber());   \
     } while (0)
 
+#define TEST_STRING(expect, json)                                     \
+    do                                                                \
+    {                                                                 \
+        Json v;                                                       \
+        CHECKEQUAL(OK, v.parse(json));                                \
+        CHECKEQUAL(StringType, v.getType());                          \
+        CHECKEQUAL(expect, std::string(v.getString(), v.getStringLength())); \
+    } while (0)
+
 #define TEST_ERROR(error, json)            \
     do                                     \
     {                                      \
@@ -45,6 +55,7 @@ static void test_parse_null()
 {
 
     Json v;
+    v.setBool(false);
     CHECKEQUAL(OK, v.parse("null"));
     CHECKEQUAL(NullType, v.getType());
 }
@@ -53,16 +64,20 @@ static void test_parse_true()
 {
 
     Json v;
+    v.setBool(false);
     CHECKEQUAL(OK, v.parse("true"));
     CHECKEQUAL(TrueType, v.getType());
+    CHECKEQUAL(true, v.getBool());
 }
 
 static void test_parse_false()
 {
 
     Json v;
+    v.setBool(true);
     CHECKEQUAL(OK, v.parse("false"));
     CHECKEQUAL(FalseType, v.getType());
+    CHECKEQUAL(false, v.getBool());
 }
 
 static void test_parse_number()
@@ -118,7 +133,6 @@ static void test_parse_invalid_value()
     TEST_ERROR(InvalidValue, "inf");
     TEST_ERROR(InvalidValue, "NAN");
     TEST_ERROR(InvalidValue, "nan");
-
 }
 
 static void test_parse_root_not_singular()
@@ -138,6 +152,34 @@ static void test_parse_number_too_big()
     TEST_ERROR(NumberTooBig, "-1e309");
 }
 
+static void test_parse_string()
+{
+    TEST_STRING("", "\"\"");
+    TEST_STRING("Hello", "\"Hello\"");
+    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+}
+
+static void test_parse_missing_quotation_mark()
+{
+    TEST_ERROR(MissQuotationMark, "\"");
+    TEST_ERROR(MissQuotationMark, "\"abc");
+}
+
+static void test_parse_invalid_string_escape()
+{
+    TEST_ERROR(InvalidStringEscape, "\"\\v\"");
+    TEST_ERROR(InvalidStringEscape, "\"\\'\"");
+    TEST_ERROR(InvalidStringEscape, "\"\\0\"");
+    TEST_ERROR(InvalidStringEscape, "\"\\x12\"");
+}
+
+static void test_parse_invalid_string_char()
+{
+    TEST_ERROR(InvalidStringChar, "\"\x01\"");
+    TEST_ERROR(InvalidStringChar, "\"\x1F\"");
+}
+
 
 static void test_parse()
 {
@@ -149,6 +191,10 @@ static void test_parse()
     test_parse_invalid_value();
     test_parse_root_not_singular();
     test_parse_number_too_big();
+    test_parse_string();
+    test_parse_missing_quotation_mark();
+    test_parse_invalid_string_escape();
+    test_parse_invalid_string_char();
 }
 
 int main()
